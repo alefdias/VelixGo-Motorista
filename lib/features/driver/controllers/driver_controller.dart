@@ -1,0 +1,252 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/models/driver_model.dart';
+import '../../../core/models/ride_model.dart';
+import '../../../core/models/invoice_model.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/services/supabase_service.dart';
+
+class DriverController extends ChangeNotifier {
+  final SupabaseService _supabaseService = SupabaseService();
+
+  DriverModel? _driverProfile;
+  bool _isOnline = false;
+  LatLng _currentLocation = const LatLng(AppConstants.defaultLat, AppConstants.defaultLng);
+
+  List<RideModel> _pendingRides = [];
+  RideModel? _activeRide;
+  List<InvoiceModel> _invoices = [];
+  List<RideModel> _rideHistory = [];
+
+  StreamSubscription<List<RideModel>>? _pendingRidesSub;
+  StreamSubscription<RideModel>? _activeRideSub;
+  Timer? _gpsTimer;
+
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // Ganhos calculados
+  double _earningsToday = 148.50;
+  double _earningsWeek = 890.00;
+  double _earningsMonth = 3450.00;
+
+  // Getters
+  DriverModel? get driverProfile => _driverProfile;
+  bool get isOnline => _isOnline;
+  LatLng get currentLocation => _currentLocation;
+  List<RideModel> get pendingRides => _pendingRides;
+  RideModel? get activeRide => _activeRide;
+  List<InvoiceModel> get invoices => _invoices;
+  List<RideModel> get rideHistory => _rideHistory;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+
+  double get earningsToday => _earningsToday;
+  double get earningsWeek => _earningsWeek;
+  double get earningsMonth => _earningsMonth;
+  double get velixBalance => _driverProfile?.currentBalance ?? 0.0;
+
+  // Fatura pendente que precisa de pagamento Pix imediato se houver
+  InvoiceModel? get pendingInvoice {
+    final list = _invoices.where((inv) => inv.isPending).toList();
+    return list.isNotEmpty ? list.first : null;
+  }
+
+  Future<void> initialize(String driverId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      _currentLocation = await LocationService.getCurrentLocation();
+      _driverProfile = await _supabaseService.getDriverProfile(driverId);
+      _isOnline = _driverProfile?.isOnline ?? false;
+      _invoices = await _supabaseService.getDriverInvoices(driverId);
+      _rideHistory = await _supabaseService.getRideHistory(driverId, isDriver: true);
+
+      if (_isOnline) {
+        _startListeningToPendingRides(driverId);
+        _startGpsBroadcast(driverId);
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> registerVehicle({
+    required String driverId,
+    required String fullName,
+    required String phone,
+    required String cnhNumber,
+    required String vehicleType, // 'car' ou 'motorcycle'
+    required String vehicleModel,
+    required String vehiclePlate,
+    required String vehicleColor,
+    required String vehicleYear,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final driver = DriverModel(
+      id: driverId,
+      fullName: fullName,
+      phone: phone,
+      cnhNumber: cnhNumber,
+      vehicleType: vehicleType,
+      vehicleModel: vehicleModel,
+      vehiclePlate: vehiclePlate,
+      vehicleColor: vehicleColor,
+      vehicleYear: vehicleYear,
+      isVerified: true,
+      lastBilledAt: DateTime.now(),
+    );
+
+    await _supabaseService.registerDriver(driver);
+    _driverProfile = driver;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> toggleOnline(String driverId) async {
+    _isOnline = !_isOnline;
+    await _supabaseService.setDriverOnline(driverId, _isOnline);
+
+    if (_isOnline) {
+      _startListeningToPendingRides(driverId);
+      _startGpsBroadcast(driverId);
+    } else {
+      _stopListeningToPendingRides();
+      _stopGpsBroadcast();
+      _pendingRides = [];
+    }
+
+    notifyListeners();
+  }
+
+  void _startListeningToPendingRides(String driverId) {
+    _pendingRidesSub?.cancel();
+    _pendingRidesSub = _supabaseService.streamPendingRidesForDriver(driverId).listen((rides) {
+      _pendingRides = rides;
+      notifyListeners();
+    });
+  }
+
+  void _stopListeningToPendingRides() {
+    _pendingRidesSub?.cancel();
+    _pendingRidesSub = null;
+  }
+
+  void _startGpsBroadcast(String driverId) {
+    _gpsTimer?.cancel();
+    _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
+      _currentLocation = await LocationService.getCurrentLocation();
+      await _supabaseService.updateDriverLocation(driverId, _currentLocation, 0.0);
+    });
+  }
+
+  void _stopGpsBroadcast() {
+    _gpsTimer?.cancel();
+    _gpsTimer = null;
+  }
+
+  Future<void> acceptRide(RideModel ride) async {
+    if (_driverProfile == null) return;
+
+    await _supabaseService.acceptRide(ride.id, _driverProfile!);
+    _activeRide = ride.copyWith(
+      status: 'accepted',
+      driverId: _driverProfile!.id,
+      driverName: _driverProfile!.fullName,
+      driverPhone: _driverProfile!.phone,
+      driverVehicle: '${_driverProfile!.vehicleModel} • ${_driverProfile!.vehicleColor}',
+      driverPlate: _driverProfile!.vehiclePlate,
+      driverRating: _driverProfile!.ratingAvg,
+    );
+
+    _pendingRides.removeWhere((r) => r.id == ride.id);
+    _listenToActiveRide(ride.id);
+    notifyListeners();
+  }
+
+  void declineRide(RideModel ride) {
+    _pendingRides.removeWhere((r) => r.id == ride.id);
+    notifyListeners();
+  }
+
+  void _listenToActiveRide(String rideId) {
+    _activeRideSub?.cancel();
+    _activeRideSub = _supabaseService.streamRide(rideId).listen((updated) {
+      _activeRide = updated;
+      notifyListeners();
+    });
+  }
+
+  // Avança o fluxo: accepted -> arrived -> in_progress -> completed
+  Future<void> advanceRideStatus() async {
+    if (_activeRide == null) return;
+
+    String nextStatus;
+    switch (_activeRide!.status) {
+      case 'accepted':
+        nextStatus = 'arrived';
+        break;
+      case 'arrived':
+        nextStatus = 'in_progress';
+        break;
+      case 'in_progress':
+        nextStatus = 'completed';
+        break;
+      default:
+        return;
+    }
+
+    await _supabaseService.updateRideStatus(
+      _activeRide!.id,
+      nextStatus,
+      actualFare: nextStatus == 'completed' ? _activeRide!.estimatedFare : null,
+    );
+
+    if (nextStatus == 'completed') {
+      _earningsToday += _activeRide!.estimatedFare;
+      _earningsWeek += _activeRide!.estimatedFare;
+      _earningsMonth += _activeRide!.estimatedFare;
+
+      // Recarrega perfil com o novo saldo e faturas
+      if (_driverProfile != null) {
+        _driverProfile = await _supabaseService.getDriverProfile(_driverProfile!.id);
+        _invoices = await _supabaseService.getDriverInvoices(_driverProfile!.id);
+      }
+      _activeRide = null;
+      _activeRideSub?.cancel();
+    } else {
+      _activeRide = _activeRide!.copyWith(status: nextStatus);
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> payInvoicePix(String invoiceId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    await _supabaseService.payInvoicePix(invoiceId);
+    if (_driverProfile != null) {
+      _invoices = await _supabaseService.getDriverInvoices(_driverProfile!.id);
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _pendingRidesSub?.cancel();
+    _activeRideSub?.cancel();
+    _gpsTimer?.cancel();
+    super.dispose();
+  }
+}
