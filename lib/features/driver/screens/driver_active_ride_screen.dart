@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/geo_utils.dart';
+import '../../../core/widgets/velix_map.dart';
 import '../controllers/driver_controller.dart';
 
 class DriverActiveRideScreen extends StatefulWidget {
@@ -15,8 +16,6 @@ class DriverActiveRideScreen extends StatefulWidget {
 }
 
 class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
-  GoogleMapController? _mapController;
-
   void _callPassenger(String? phone) async {
     if (phone == null || phone.isEmpty) return;
     final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -61,46 +60,46 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
     final pickupPos = LatLng(ride.originLat, ride.originLng);
     final dropoffPos = LatLng(ride.destinationLat, ride.destinationLng);
 
-    final Set<Marker> markers = {
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: pickupPos,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'Passageiro (Embarque)'),
+    final markers = <VelixMapMarker>[
+      // Onde o motorista está no GPS
+      VelixMapMarker(
+        point: driver.currentLocation,
+        child: DriverVehicleMarker(
+          vehicleType: driver.driverProfile?.vehicleType ?? 'car',
+          label: 'Sua Posição (GPS)',
+        ),
       ),
-      Marker(
-        markerId: const MarkerId('dropoff'),
-        position: dropoffPos,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: const InfoWindow(title: 'Destino Final'),
+      // Onde o passageiro está (Embarque)
+      VelixMapMarker(
+        point: pickupPos,
+        child: PassengerLocationMarker(
+          label: ride.passengerName ?? 'Passageiro (Embarque)',
+        ),
       ),
-    };
+      // Destino Final
+      VelixMapMarker(
+        point: dropoffPos,
+        child: const DestinationMarker(title: 'Destino Final'),
+      ),
+    ];
 
-    final polylinePoints = GeoUtils.createRoutePolyline(pickupPos, dropoffPos);
-    final Set<Polyline> polylines = {
-      Polyline(
-        polylineId: const PolylineId('driver_route'),
-        points: polylinePoints,
-        color: AppColors.green,
-        width: 5,
-      ),
-    };
+    // Traça rota até o passageiro ou até o destino
+    final routePoints = (ride.status == 'accepted' || ride.status == 'arrived')
+        ? GeoUtils.createRoutePolyline(driver.currentLocation, pickupPos)
+        : GeoUtils.createRoutePolyline(driver.currentLocation, dropoffPos);
 
     return Scaffold(
       body: Stack(
         children: [
-          // Mapa com Navegação
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: pickupPos,
-              zoom: 15,
-            ),
+          // Velix Map Navegação
+          VelixMap(
+            center: driver.currentLocation,
+            initialZoom: 15.5,
             markers: markers,
-            polylines: polylines,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            onMapCreated: (ctrl) => _mapController = ctrl,
+            routePoints: routePoints,
+            routeColor: AppColors.green,
+            showRecenterButton: true,
+            padding: const EdgeInsets.only(bottom: 300),
           ),
 
           // Top Header com Botão Waze/Google Maps Externo
@@ -139,27 +138,6 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-
-          // Botão Centralizar GPS
-          Positioned(
-            bottom: 270,
-            right: 16,
-            child: Material(
-              elevation: 4,
-              shape: const CircleBorder(),
-              child: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: IconButton(
-                  icon: const Icon(Icons.my_location, color: AppColors.black),
-                  onPressed: () {
-                    _mapController?.animateCamera(
-                      CameraUpdate.newLatLng(driver.currentLocation),
-                    );
-                  },
-                ),
               ),
             ),
           ),

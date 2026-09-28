@@ -79,11 +79,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   width: 90,
                   height: 90,
                   decoration: BoxDecoration(
-                    color: AppColors.blue,
+                    color: AppColors.green,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.blue.withOpacity(0.4),
+                        color: AppColors.green.withOpacity(0.4),
                         blurRadius: 24,
                         offset: const Offset(0, 8),
                       ),
@@ -91,7 +91,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                   child: const Center(
                     child: Icon(
-                      Icons.navigation_rounded,
+                      Icons.directions_car_rounded,
                       size: 48,
                       color: Colors.white,
                     ),
@@ -118,9 +118,34 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.green.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.green, width: 1.5),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.two_wheeler_rounded, color: AppColors.green, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'MOTORISTA & PARCEIRO',
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 const Text(
-                  'Motorista & Mototaxista Parceiro',
+                  'Portal do Motorista e Mototaxista',
                   style: TextStyle(
                     color: AppColors.greyLight,
                     fontSize: 14,

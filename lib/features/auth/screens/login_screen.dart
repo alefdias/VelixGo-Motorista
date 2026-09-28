@@ -65,14 +65,26 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submitSocial(String provider) async {
     final auth = Provider.of<AuthController>(context, listen: false);
     final ok = await auth.loginWithSocial(provider);
-    if (ok && mounted) {
-      _onSuccessRedirect();
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.errorMessage ?? 'Não foi possível iniciar o login com $provider.'),
+          backgroundColor: AppColors.red,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthController>(context);
+
+    // Redireciona automaticamente quando autenticado com o Google
+    if (auth.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onSuccessRedirect();
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -88,19 +100,40 @@ class _LoginScreenState extends State<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.blue,
+                      color: AppColors.green,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.navigation_rounded, color: Colors.white, size: 28),
+                    child: const Icon(Icons.directions_car_rounded, color: Colors.white, size: 28),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Velix Go Motorista',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.black,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Velix Go',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.black,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.green.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'MOTORISTA & PARCEIRO',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.green,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

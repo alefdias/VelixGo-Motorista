@@ -14,6 +14,25 @@ class AuthController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
 
+  AuthController() {
+    _initAuthListener();
+  }
+
+  void _initAuthListener() {
+    if (!_supabaseService.isLive) return;
+    try {
+      _supabaseService.client.auth.onAuthStateChange.listen((data) async {
+        final session = data.session;
+        if (session != null) {
+          _currentUser = await _supabaseService.getCurrentUser();
+          _isLoading = false;
+          _errorMessage = null;
+          notifyListeners();
+        }
+      });
+    } catch (_) {}
+  }
+
   Future<void> checkAuthStatus() async {
     _isLoading = true;
     notifyListeners();
@@ -52,10 +71,12 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentUser = await _supabaseService.signInSocial(provider, redirectScheme: 'com.velixgo.driver');
-      _isLoading = false;
-      notifyListeners();
-      return true;
+      final ok = await _supabaseService.signInSocial(provider, redirectScheme: 'com.velixgo.driver');
+      if (!ok) {
+        _isLoading = false;
+        notifyListeners();
+      }
+      return ok;
     } catch (e) {
       _errorMessage = 'Falha ao conectar com $provider.';
       _isLoading = false;

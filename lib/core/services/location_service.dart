@@ -1,5 +1,5 @@
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import '../constants/app_constants.dart';
 
 class LocationService {
@@ -23,7 +23,10 @@ class LocationService {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
 
       return LatLng(position.latitude, position.longitude);
@@ -36,7 +39,7 @@ class LocationService {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // Atualiza a cada 5 metros
+        distanceFilter: 3, // Atualiza a cada 3 metros em tempo real
       ),
     );
   }

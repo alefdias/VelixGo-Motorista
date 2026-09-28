@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/models/ride_model.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/velix_map.dart';
 import '../controllers/driver_controller.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../profile/screens/profile_screen.dart';
@@ -19,15 +19,13 @@ class DriverHomeScreen extends StatefulWidget {
 }
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
-  GoogleMapController? _mapController;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = Provider.of<AuthController>(context, listen: false);
       final driver = Provider.of<DriverController>(context, listen: false);
-      driver.initialize(auth.currentUser?.id ?? 'mock-driver-1');
+      driver.initialize(auth.currentUser?.id ?? '00000000-0000-0000-0000-000000000002');
     });
   }
 
@@ -55,31 +53,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     );
   }
 
-  // Simula recebimento de uma corrida em tempo real para testes rápidos
-  void _simulateIncomingRide() {
-    final driver = Provider.of<DriverController>(context, listen: false);
-    final simulated = RideModel(
-      id: 'ride-sim-${DateTime.now().millisecondsSinceEpoch}',
-      passengerId: 'mock-passenger-2',
-      passengerName: 'Camila Rocha',
-      passengerPhone: '(11) 97766-3322',
-      status: 'requested',
-      originAddress: 'Rua Bela Cintra, 890 - Consolação',
-      originLat: driver.currentLocation.latitude + 0.004,
-      originLng: driver.currentLocation.longitude + 0.003,
-      destinationAddress: 'Av. Brigadeiro Faria Lima, 2200 - Pinheiros',
-      destinationLat: driver.currentLocation.latitude - 0.015,
-      destinationLng: driver.currentLocation.longitude - 0.012,
-      distanceKm: 5.4,
-      estimatedDurationMin: 14,
-      estimatedFare: 21.50,
-      paymentMethod: 'pix',
-      createdAt: DateTime.now(),
-    );
-
-    _showIncomingRide(simulated);
-  }
-
   @override
   Widget build(BuildContext context) {
     final driver = Provider.of<DriverController>(context);
@@ -93,34 +66,27 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       });
     }
 
-    final Set<Marker> markers = {
-      Marker(
-        markerId: const MarkerId('driver_pos'),
-        position: driver.currentLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          driver.isOnline ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueRed,
-        ),
-        infoWindow: InfoWindow(
-          title: driver.isOnline ? 'Você está Online' : 'Você está Offline',
+    final markers = <VelixMapMarker>[
+      VelixMapMarker(
+        point: driver.currentLocation,
+        child: DriverVehicleMarker(
+          vehicleType: driver.driverProfile?.vehicleType ?? 'car',
+          label: driver.isOnline ? 'Você está Online (GPS)' : 'Você está Offline',
         ),
       ),
-    };
+    ];
 
     return Scaffold(
       drawer: _buildDrawer(context, auth, driver),
       body: Stack(
         children: [
-          // Google Maps
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: driver.currentLocation,
-              zoom: 15,
-            ),
+          // Velix Map
+          VelixMap(
+            center: driver.currentLocation,
+            initialZoom: 15.5,
             markers: markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            onMapCreated: (ctrl) => _mapController = ctrl,
+            showRecenterButton: true,
+            padding: const EdgeInsets.only(bottom: 220),
           ),
 
           // Header Superior com Menu e Card de Ganhos / Saldo
@@ -290,25 +256,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               ),
             ),
 
-          // Botão Centralizar GPS Motorista
-          Positioned(
-            right: 16,
-            bottom: 160,
-            child: FloatingActionButton.small(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.black,
-              elevation: 4,
-              onPressed: () {
-                _mapController?.animateCamera(
-                  CameraUpdate.newCameraPosition(
-                    CameraPosition(target: driver.currentLocation, zoom: 15),
-                  ),
-                );
-              },
-              child: const Icon(Icons.my_location),
-            ),
-          ),
-
           // Painel Inferior: Chave Online / Offline e Botão de Simulação
           Align(
             alignment: Alignment.bottomCenter,
@@ -375,12 +322,32 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   if (driver.isOnline) ...[
                     const SizedBox(height: 14),
                     OutlinedButton.icon(
-                      onPressed: _simulateIncomingRide,
-                      icon: const Icon(Icons.play_circle_outline, color: AppColors.blue, size: 20),
-                      label: const Text('Simular Nova Corrida Recebida'),
+                      onPressed: () {
+                        final testRide = RideModel(
+                          id: 'ride-sim-${DateTime.now().millisecondsSinceEpoch}',
+                          passengerId: '00000000-0000-0000-0000-000000000001',
+                          passengerName: 'Passageiro Velix (Realtime)',
+                          passengerPhone: '(11) 98765-4321',
+                          status: 'requested',
+                          originAddress: 'Av. Paulista, 1000 - Bela Vista',
+                          originLat: driver.currentLocation.latitude + 0.005,
+                          originLng: driver.currentLocation.longitude + 0.005,
+                          destinationAddress: 'Parque Ibirapuera - Portão 3',
+                          destinationLat: -23.5874,
+                          destinationLng: -46.6576,
+                          distanceKm: 3.8,
+                          estimatedDurationMin: 12,
+                          estimatedFare: 14.50,
+                          paymentMethod: 'pix',
+                          createdAt: DateTime.now(),
+                        );
+                        _showIncomingRide(testRide);
+                      },
+                      icon: const Icon(Icons.play_circle_outline, color: AppColors.green, size: 20),
+                      label: const Text('Simular Chamada de Passageiro', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 44),
-                        side: const BorderSide(color: AppColors.blue),
+                        side: const BorderSide(color: AppColors.green),
                       ),
                     ),
                   ],
@@ -394,23 +361,41 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   Widget _buildDrawer(BuildContext context, AuthController auth, DriverController driver) {
+    final driverAvatar = driver.driverProfile?.avatarUrl;
+    final userAvatar = auth.currentUser?.avatarUrl;
+    final avatar = (driverAvatar != null && driverAvatar.isNotEmpty)
+        ? driverAvatar
+        : ((userAvatar != null && userAvatar.isNotEmpty) ? userAvatar : null);
+
+    final name = driver.driverProfile?.fullName.isNotEmpty == true
+        ? driver.driverProfile!.fullName
+        : (auth.currentUser?.fullName.isNotEmpty == true ? auth.currentUser!.fullName : 'Motorista Parceiro');
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'M';
+
     return Drawer(
       backgroundColor: Colors.white,
       child: Column(
         children: [
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(color: AppColors.black),
-            currentAccountPicture: const CircleAvatar(
-              backgroundImage: NetworkImage(
-                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-              ),
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: AppColors.green,
+              backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+              child: avatar == null
+                  ? Text(
+                      initial,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                    )
+                  : null,
             ),
             accountName: Text(
-              driver.driverProfile?.fullName ?? 'Marcos Silva',
+              name,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             accountEmail: Text(
-              '${driver.driverProfile?.vehicleModel ?? 'Toyota Corolla'} • ${driver.driverProfile?.vehiclePlate ?? 'BRA2E19'}',
+              auth.currentUser?.email.isNotEmpty == true
+                  ? auth.currentUser!.email
+                  : (driver.driverProfile != null ? '${driver.driverProfile!.vehicleModel} • ${driver.driverProfile!.vehiclePlate}' : ''),
               style: const TextStyle(color: AppColors.greyLight, fontSize: 13),
             ),
           ),

@@ -4,7 +4,7 @@ import 'package:velix_go_driver/main.dart';
 import 'package:velix_go_driver/core/constants/app_constants.dart';
 import 'package:velix_go_driver/core/utils/formatters.dart';
 import 'package:velix_go_driver/core/utils/geo_utils.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
   group('Velix Go Core Business Logic Tests', () {
@@ -45,7 +45,6 @@ void main() {
 
       // Avança o tempo além da animação da Splash (1800ms)
       await tester.pump(const Duration(seconds: 3));
-      await tester.pumpAndSettle();
 
       // Confirma que a árvore renderizou com sucesso
       expect(find.byType(MaterialApp), findsOneWidget);

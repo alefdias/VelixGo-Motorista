@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import '../constants/app_constants.dart';
 
 class GeoUtils {
@@ -49,31 +49,21 @@ class GeoUtils {
     }
   }
 
-  // Gera uma rota suave interpolada entre origem e destino para o Polyline
+  // Gera uma rota interpolada entre dois pontos para renderizar o Polyline
   static List<LatLng> createRoutePolyline(LatLng origin, LatLng destination) {
     final List<LatLng> points = [origin];
-    const int segments = 12;
+    const int segments = 16;
 
     for (int i = 1; i < segments; i++) {
       final double fraction = i / segments;
       final double lat = origin.latitude + (destination.latitude - origin.latitude) * fraction;
       final double lng = origin.longitude + (destination.longitude - origin.longitude) * fraction;
       
-      final double offset = math.sin(fraction * math.pi) * 0.0018;
+      final double offset = math.sin(fraction * math.pi) * 0.0012;
       points.add(LatLng(lat + offset, lng - offset / 2));
     }
 
     points.add(destination);
     return points;
-  }
-
-  // Gera veículos simulados próximos para demonstração no mapa (misturando motos e carros)
-  static List<LatLng> getNearbySimulatedDrivers(LatLng center) {
-    return [
-      LatLng(center.latitude + 0.0035, center.longitude + 0.0028),
-      LatLng(center.latitude - 0.0042, center.longitude - 0.0031),
-      LatLng(center.latitude + 0.0021, center.longitude - 0.0045),
-      LatLng(center.latitude - 0.0038, center.longitude + 0.0040),
-    ];
   }
 }

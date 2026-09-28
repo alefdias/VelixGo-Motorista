@@ -102,11 +102,14 @@ class RideModel {
     );
   }
 
+  static bool isValidUuid(String str) {
+    return RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(str);
+  }
+
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'passenger_id': passengerId,
-      'driver_id': driverId,
+    final map = <String, dynamic>{
+      'passenger_id': isValidUuid(passengerId) ? passengerId : '00000000-0000-0000-0000-000000000001',
+      if (driverId != null && isValidUuid(driverId!)) 'driver_id': driverId,
       'status': status,
       'vehicle_type': vehicleType,
       'origin_address': originAddress,
@@ -120,9 +123,14 @@ class RideModel {
       'estimated_fare': estimatedFare,
       'actual_fare': actualFare ?? estimatedFare,
       'payment_method': paymentMethod,
-      'priority_until': priorityUntil?.toIso8601String(),
-      'favorite_driver_notified': favoriteDriverNotified,
     };
+    if (isValidUuid(id)) {
+      map['id'] = id;
+    }
+    if (priorityUntil != null) {
+      map['priority_until'] = priorityUntil!.toIso8601String();
+    }
+    return map;
   }
 
   RideModel copyWith({

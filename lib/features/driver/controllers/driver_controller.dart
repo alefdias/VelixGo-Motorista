@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/models/driver_model.dart';
 import '../../../core/models/ride_model.dart';
@@ -22,6 +23,7 @@ class DriverController extends ChangeNotifier {
 
   StreamSubscription<List<RideModel>>? _pendingRidesSub;
   StreamSubscription<RideModel>? _activeRideSub;
+  StreamSubscription<Position>? _gpsStreamSub;
   Timer? _gpsTimer;
 
   bool _isLoading = false;
@@ -141,14 +143,27 @@ class DriverController extends ChangeNotifier {
   }
 
   void _startGpsBroadcast(String driverId) {
+    _gpsStreamSub?.cancel();
     _gpsTimer?.cancel();
-    _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
-      _currentLocation = await LocationService.getCurrentLocation();
-      await _supabaseService.updateDriverLocation(driverId, _currentLocation, 0.0);
+
+    // 1. Atualização imediata da localização atual
+    LocationService.getCurrentLocation().then((loc) {
+      _currentLocation = loc;
+      _supabaseService.updateDriverLocation(driverId, loc, 0.0);
+      notifyListeners();
+    });
+
+    // 2. Transmissão contínua em tempo real conforme o motorista se desloca
+    _gpsStreamSub = LocationService.getPositionStream().listen((pos) {
+      _currentLocation = LatLng(pos.latitude, pos.longitude);
+      _supabaseService.updateDriverLocation(driverId, _currentLocation, pos.heading);
+      notifyListeners();
     });
   }
 
   void _stopGpsBroadcast() {
+    _gpsStreamSub?.cancel();
+    _gpsStreamSub = null;
     _gpsTimer?.cancel();
     _gpsTimer = null;
   }
