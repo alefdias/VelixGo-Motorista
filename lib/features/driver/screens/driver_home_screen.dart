@@ -318,6 +318,110 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     ],
                   ),
 
+                  const SizedBox(height: 16),
+
+                  // Seletor de Categoria do Veículo (Carro / Moto)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              driver.updateVehicleType(auth.currentUser?.id ?? 'mock-driver-1', 'car');
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: driver.isCar ? AppColors.green : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: driver.isCar
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.green.withOpacity(0.3),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.directions_car_rounded,
+                                    size: 18,
+                                    color: driver.isCar ? Colors.white : AppColors.grey,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Carro',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: driver.isCar ? Colors.white : AppColors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              driver.updateVehicleType(auth.currentUser?.id ?? 'mock-driver-1', 'motorcycle');
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: driver.isMotorcycle ? AppColors.green : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: driver.isMotorcycle
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.green.withOpacity(0.3),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.two_wheeler_rounded,
+                                    size: 18,
+                                    color: driver.isMotorcycle ? Colors.white : AppColors.grey,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Moto',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: driver.isMotorcycle ? Colors.white : AppColors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // Botão de Teste / Simulação de Corrida Recebida
                   if (driver.isOnline) ...[
                     const SizedBox(height: 14),

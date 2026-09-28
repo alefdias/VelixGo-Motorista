@@ -421,16 +421,31 @@ class SupabaseService {
     }
   }
 
-  Future<void> updateDriverLocation(String driverId, LatLng pos, double heading) async {
+  Future<void> updateDriverVehicleType(String driverId, String newType) async {
     if (_isLive) {
       try {
-        await client.from('driver_locations').upsert({
+        await client.from('drivers').update({'vehicle_type': newType}).eq('id', driverId);
+      } catch (_) {}
+    }
+    if (_mockDriver != null) {
+      _mockDriver = _mockDriver!.copyWith(vehicleType: newType);
+    }
+  }
+
+  Future<void> updateDriverLocation(String driverId, LatLng pos, double heading, {String? vehicleType}) async {
+    if (_isLive) {
+      try {
+        final Map<String, dynamic> data = {
           'driver_id': driverId,
           'latitude': pos.latitude,
           'longitude': pos.longitude,
           'heading': heading,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        };
+        if (vehicleType != null) {
+          data['vehicle_type'] = vehicleType;
+        }
+        await client.from('driver_locations').upsert(data);
       } catch (_) {}
     }
   }

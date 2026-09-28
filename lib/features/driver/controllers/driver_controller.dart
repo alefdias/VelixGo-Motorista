@@ -49,6 +49,9 @@ class DriverController extends ChangeNotifier {
   double get earningsWeek => _earningsWeek;
   double get earningsMonth => _earningsMonth;
   double get velixBalance => _driverProfile?.currentBalance ?? 0.0;
+  bool get isCar => (_driverProfile?.vehicleType ?? 'car') == 'car';
+  bool get isMotorcycle => (_driverProfile?.vehicleType ?? 'car') == 'motorcycle';
+  String get vehicleType => _driverProfile?.vehicleType ?? 'car';
 
   // Fatura pendente que precisa de pagamento Pix imediato se houver
   InvoiceModel? get pendingInvoice {
@@ -129,6 +132,22 @@ class DriverController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateVehicleType(String driverId, String newType) async {
+    if (_driverProfile != null) {
+      _driverProfile = _driverProfile!.copyWith(vehicleType: newType);
+    }
+    await _supabaseService.updateDriverVehicleType(driverId, newType);
+    if (_isOnline) {
+      await _supabaseService.updateDriverLocation(
+        driverId,
+        _currentLocation,
+        0.0,
+        vehicleType: newType,
+      );
+    }
+    notifyListeners();
+  }
+
   void _startListeningToPendingRides(String driverId) {
     _pendingRidesSub?.cancel();
     _pendingRidesSub = _supabaseService.streamPendingRidesForDriver(driverId).listen((rides) {
@@ -149,14 +168,24 @@ class DriverController extends ChangeNotifier {
     // 1. Atualização imediata da localização atual
     LocationService.getCurrentLocation().then((loc) {
       _currentLocation = loc;
-      _supabaseService.updateDriverLocation(driverId, loc, 0.0);
+      _supabaseService.updateDriverLocation(
+        driverId,
+        loc,
+        0.0,
+        vehicleType: _driverProfile?.vehicleType ?? 'car',
+      );
       notifyListeners();
     });
 
     // 2. Transmissão contínua em tempo real conforme o motorista se desloca
     _gpsStreamSub = LocationService.getPositionStream().listen((pos) {
       _currentLocation = LatLng(pos.latitude, pos.longitude);
-      _supabaseService.updateDriverLocation(driverId, _currentLocation, pos.heading);
+      _supabaseService.updateDriverLocation(
+        driverId,
+        _currentLocation,
+        pos.heading,
+        vehicleType: _driverProfile?.vehicleType ?? 'car',
+      );
       notifyListeners();
     });
   }

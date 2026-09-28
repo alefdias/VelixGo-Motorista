@@ -103,37 +103,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: AppColors.green,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.directions_car_rounded, color: Colors.white, size: 28),
+                    child: const Icon(Icons.navigation_rounded, color: Colors.white, size: 28),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Velix Go',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.black,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.green.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'MOTORISTA & PARCEIRO',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.green,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Velix Go',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.black,
+                    ),
                   ),
                 ],
               ),
