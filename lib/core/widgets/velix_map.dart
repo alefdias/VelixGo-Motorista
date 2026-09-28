@@ -204,22 +204,6 @@ class _VelixMapState extends State<VelixMap> {
       ],
     );
 
-    // Modo 3D Cockpit GPS com perspectiva
-    if (_is3D) {
-      mapWidget = ClipRect(
-        child: Transform(
-          alignment: const FractionalOffset(0.5, 0.72),
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0016)
-            ..rotateX(0.70),
-          child: Transform.scale(
-            scale: 1.35,
-            child: mapWidget,
-          ),
-        ),
-      );
-    }
-
     final double bottomOffset = widget.padding?.bottom ?? 180;
 
     return Stack(
@@ -418,55 +402,31 @@ class DriverVehicleMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMoto = vehicleType == 'motorcycle';
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (label != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: const [
-                BoxShadow(color: Colors.black38, blurRadius: 4),
-              ],
-            ),
-            child: Text(
-              label!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+    return Center(
+      child: Transform.rotate(
+        angle: heading * (3.141592653589793 / 180),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isMoto ? AppColors.green : AppColors.black,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black38,
+                blurRadius: 6,
+                offset: Offset(0, 2),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
           ),
-        Transform.rotate(
-          angle: heading * (3.141592653589793 / 180),
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isMoto ? AppColors.green : AppColors.black,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black38,
-                  blurRadius: 8,
-                  offset: Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Icon(
-              isMoto ? Icons.two_wheeler_rounded : Icons.directions_car_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
+          child: Icon(
+            isMoto ? Icons.two_wheeler_rounded : Icons.directions_car_rounded,
+            color: Colors.white,
+            size: 22,
           ),
         ),
-      ],
+      ),
     );
   }
 }
