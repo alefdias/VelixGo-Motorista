@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/navigation_voice_service.dart';
 import '../../../core/services/routing_service.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/geo_utils.dart';
@@ -17,10 +18,23 @@ class DriverActiveRideScreen extends StatefulWidget {
 }
 
 class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
+  final NavigationVoiceService _voiceService = NavigationVoiceService();
   List<LatLng>? _dynamicRoutePoints;
   List<RouteInstruction> _dynamicInstructions = [];
   bool _is3DNavigation = true;
   String _lastRouteKey = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _voiceService.initialize();
+  }
+
+  @override
+  void dispose() {
+    _voiceService.stop();
+    super.dispose();
+  }
 
   void _updateRouteIfNeeded(LatLng from, LatLng to) {
     final key = '${from.latitude.toStringAsFixed(4)},${from.longitude.toStringAsFixed(4)}-${to.latitude.toStringAsFixed(4)},${to.longitude.toStringAsFixed(4)}';
@@ -33,8 +47,87 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
           _dynamicRoutePoints = res.points;
           _dynamicInstructions = res.instructions;
         });
+        if (res.instructions.isNotEmpty) {
+          _voiceService.speak(res.instructions.first.instruction);
+        }
       }
     }).catchError((_) {});
+  }
+
+  void _openExternalGps(String app, LatLng dest) async {
+    Uri uri;
+    if (app == 'waze') {
+      uri = Uri.parse('https://waze.com/ul?ll=${dest.latitude},${dest.longitude}&navigate=yes');
+    } else {
+      uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${dest.latitude},${dest.longitude}&travelmode=driving');
+    }
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
+
+  void _showGpsChooser(BuildContext context, LatLng destination) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Navegar com aplicativo externo',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8F0FE),
+                    child: Icon(Icons.map_rounded, color: Color(0xFF1A73E8)),
+                  ),
+                  title: const Text('Google Maps', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Abrir rota no Google Maps'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openExternalGps('google', destination);
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE0F7FA),
+                    child: Icon(Icons.navigation_rounded, color: Color(0xFF00ACC1)),
+                  ),
+                  title: const Text('Waze', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Abrir rota com alertas no Waze'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openExternalGps('waze', destination);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
   void _callPassenger(String? phone) async {
     if (phone == null || phone.isEmpty) return;
@@ -112,7 +205,7 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Velix Map Navegação 3D GPS
+          // Velix Map Navegação 3D GPS com Velocímetro e Dark Mode
           VelixMap(
             center: driver.currentLocation,
             initialZoom: 17.5,
@@ -120,8 +213,12 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
             routePoints: routePoints,
             routeColor: AppColors.green,
             showRecenterButton: true,
+            show3DToggle: true,
+            showDarkModeToggle: true,
             initial3DMode: _is3DNavigation,
             heading: driver.heading,
+            speedKmH: driver.currentSpeedKmH,
+            showSpeedometer: true,
             onToggle3D: (val) => setState(() => _is3DNavigation = val),
             padding: const EdgeInsets.only(bottom: 300),
           ),
@@ -174,12 +271,24 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: Icon(
+                        _voiceService.isVoiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                        color: _voiceService.isVoiceEnabled ? AppColors.green : Colors.white60,
+                        size: 22,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _voiceService.toggleVoice();
+                        });
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
 
-          // Top Header com Botão Waze/Google Maps Externo
+          // Top Header com Botão Waze/Google Maps Externo e Voltar
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -190,6 +299,35 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back, color: AppColors.black),
                       onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Botão 1 Toque Waze / Google Maps
+                  Material(
+                    elevation: 3,
+                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white,
+                    child: InkWell(
+                      onTap: () => _showGpsChooser(context, targetPos),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.directions, color: AppColors.green, size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'Waze / Maps',
+                              style: TextStyle(
+                                color: AppColors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const Spacer(),

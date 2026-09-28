@@ -30,8 +30,12 @@ class VelixMap extends StatefulWidget {
   final VoidCallback? onRecenter;
   final bool showRecenterButton;
   final bool show3DToggle;
+  final bool showDarkModeToggle;
+  final bool? isDarkMode;
   final bool initial3DMode;
   final double? heading;
+  final int? speedKmH;
+  final bool showSpeedometer;
   final ValueChanged<bool>? onToggle3D;
   final EdgeInsets? padding;
 
@@ -47,8 +51,12 @@ class VelixMap extends StatefulWidget {
     this.onRecenter,
     this.showRecenterButton = true,
     this.show3DToggle = true,
+    this.showDarkModeToggle = true,
+    this.isDarkMode,
     this.initial3DMode = false,
     this.heading,
+    this.speedKmH,
+    this.showSpeedometer = false,
     this.onToggle3D,
     this.padding,
   });
@@ -60,12 +68,15 @@ class VelixMap extends StatefulWidget {
 class _VelixMapState extends State<VelixMap> {
   late final MapController _mapController;
   late bool _is3D;
+  late bool _isDark;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _is3D = widget.initial3DMode;
+    final currentHour = DateTime.now().hour;
+    _isDark = widget.isDarkMode ?? (currentHour >= 18 || currentHour < 6);
     widget.onMapReady?.call(_mapController);
   }
 
@@ -84,6 +95,9 @@ class _VelixMapState extends State<VelixMap> {
     }
     if (oldWidget.initial3DMode != widget.initial3DMode) {
       setState(() => _is3D = widget.initial3DMode);
+    }
+    if (widget.isDarkMode != null && widget.isDarkMode != oldWidget.isDarkMode) {
+      setState(() => _isDark = widget.isDarkMode!);
     }
   }
 
@@ -118,6 +132,12 @@ class _VelixMapState extends State<VelixMap> {
     widget.onToggle3D?.call(_is3D);
   }
 
+  void _toggleDarkMode() {
+    setState(() {
+      _isDark = !_isDark;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final polylines = <Polyline>[];
@@ -145,6 +165,26 @@ class _VelixMapState extends State<VelixMap> {
       );
     }).toList();
 
+    Widget tileLayer = TileLayer(
+      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      fallbackUrl: 'https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+      userAgentPackageName: 'com.velixgo.driver',
+      maxZoom: 19,
+    );
+
+    // Efeito Dark Mode Noturno sem necessidade de chave de API externa
+    if (_isDark) {
+      tileLayer = ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          -0.78, 0, 0, 0, 230,
+          0, -0.78, 0, 0, 230,
+          0, 0, -0.78, 0, 230,
+          0, 0, 0, 1, 0,
+        ]),
+        child: tileLayer,
+      );
+    }
+
     Widget mapWidget = FlutterMap(
       mapController: _mapController,
       options: MapOptions(
@@ -158,18 +198,13 @@ class _VelixMapState extends State<VelixMap> {
         ),
       ),
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          fallbackUrl: 'https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.velixgo.driver',
-          maxZoom: 19,
-        ),
+        tileLayer,
         if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
         if (flutterMarkers.isNotEmpty) MarkerLayer(markers: flutterMarkers),
       ],
     );
 
-    // Modo 3D Cockpit GPS
+    // Modo 3D Cockpit GPS com perspectiva
     if (_is3D) {
       mapWidget = ClipRect(
         child: Transform(
@@ -185,15 +220,81 @@ class _VelixMapState extends State<VelixMap> {
       );
     }
 
+    final double bottomOffset = widget.padding?.bottom ?? 180;
+
     return Stack(
       children: [
         mapWidget,
+
+        // Velocímetro Digital no Canto Inferior Esquerdo
+        if (widget.showSpeedometer && widget.speedKmH != null)
+          Positioned(
+            left: 16,
+            bottom: bottomOffset,
+            child: Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.88),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: (widget.speedKmH! > 60) ? AppColors.red : widget.routeColor,
+                  width: 3,
+                ),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 3)),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${widget.speedKmH}',
+                    style: TextStyle(
+                      color: (widget.speedKmH! > 60) ? AppColors.red : Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      height: 1.1,
+                    ),
+                  ),
+                  const Text(
+                    'km/h',
+                    style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // Botão flutuante Dark Mode (☀️ / 🌙)
+        if (widget.showDarkModeToggle)
+          Positioned(
+            right: 16,
+            bottom: bottomOffset + 110,
+            child: Material(
+              elevation: 4,
+              shape: const CircleBorder(),
+              color: Colors.white,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _toggleDarkMode,
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(
+                    _isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    color: _isDark ? Colors.amber[700] : AppColors.black,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ),
 
         // Botão flutuante 3D / 2D
         if (widget.show3DToggle)
           Positioned(
             right: 16,
-            bottom: (widget.padding?.bottom ?? 180) + 58,
+            bottom: bottomOffset + 56,
             child: Material(
               elevation: 4,
               shape: const CircleBorder(),
@@ -220,7 +321,7 @@ class _VelixMapState extends State<VelixMap> {
         if (widget.showRecenterButton)
           Positioned(
             right: 16,
-            bottom: widget.padding?.bottom ?? 180,
+            bottom: bottomOffset,
             child: Material(
               elevation: 4,
               shape: const CircleBorder(),

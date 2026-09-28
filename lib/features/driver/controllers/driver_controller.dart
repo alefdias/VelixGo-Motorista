@@ -16,6 +16,7 @@ class DriverController extends ChangeNotifier {
   bool _isOnline = false;
   LatLng _currentLocation = const LatLng(AppConstants.defaultLat, AppConstants.defaultLng);
   double _heading = 0.0;
+  int _currentSpeedKmH = 0;
 
   List<RideModel> _pendingRides = [];
   RideModel? _activeRide;
@@ -40,6 +41,7 @@ class DriverController extends ChangeNotifier {
   bool get isOnline => _isOnline;
   LatLng get currentLocation => _currentLocation;
   double get heading => _heading;
+  int get currentSpeedKmH => _currentSpeedKmH;
   List<RideModel> get pendingRides => _pendingRides;
   RideModel? get activeRide => _activeRide;
   List<InvoiceModel> get invoices => _invoices;
@@ -183,6 +185,7 @@ class DriverController extends ChangeNotifier {
     _gpsStreamSub = LocationService.getPositionStream().listen((pos) {
       _currentLocation = LatLng(pos.latitude, pos.longitude);
       _heading = pos.heading;
+      _currentSpeedKmH = (pos.speed > 0) ? (pos.speed * 3.6).round() : 0;
       _supabaseService.updateDriverLocation(
         driverId,
         _currentLocation,
