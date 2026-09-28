@@ -118,8 +118,8 @@ class _VelixMapState extends State<VelixMap> {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-              fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              fallbackUrl: 'https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.velixgo.driver',
               maxZoom: 19,
             ),
