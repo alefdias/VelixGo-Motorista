@@ -52,7 +52,7 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentUser = await _supabaseService.signInSocialMock(provider);
+      _currentUser = await _supabaseService.signInSocial(provider, redirectScheme: 'com.velixgo.driver');
       _isLoading = false;
       notifyListeners();
       return true;

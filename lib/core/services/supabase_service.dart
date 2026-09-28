@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/app_constants.dart';
@@ -161,16 +162,36 @@ class SupabaseService {
     return _mockCurrentUser!;
   }
 
-  Future<UserProfile> signInSocialMock(String provider) async {
+  Future<UserProfile> signInSocial(String provider, {String redirectScheme = 'com.velixgo.driver'}) async {
+    if (_isLive) {
+      try {
+        final oAuthProvider = provider.toLowerCase() == 'google'
+            ? OAuthProvider.google
+            : OAuthProvider.apple;
+
+        await client.auth.signInWithOAuth(
+          oAuthProvider,
+          redirectTo: '$redirectScheme://login-callback',
+        );
+
+        if (client.auth.currentUser != null) {
+          final profile = await getCurrentUser();
+          if (profile != null) return profile;
+        }
+      } catch (e) {
+        debugPrint('Erro OAuth $provider: $e');
+      }
+    }
+
     _mockCurrentUser = UserProfile(
-      id: 'user-social-${provider.toLowerCase()}',
-      fullName: provider == 'Google' ? 'Alexandre Gomes' : 'Juliana Ramos',
-      email: '${provider.toLowerCase()}.user@velixgo.com.br',
+      id: client.auth.currentUser?.id ?? 'user-social-${provider.toLowerCase()}',
+      fullName: client.auth.currentUser?.userMetadata?['full_name'] ?? (provider == 'Google' ? 'Alexandre Gomes' : 'Juliana Ramos'),
+      email: client.auth.currentUser?.email ?? '${provider.toLowerCase()}.user@velixgo.com.br',
       phone: '(11) 97123-9988',
-      avatarUrl: provider == 'Google' 
+      avatarUrl: client.auth.currentUser?.userMetadata?['avatar_url'] ?? (provider == 'Google' 
           ? 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150'
-          : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-      role: 'unselected',
+          : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150'),
+      role: 'driver',
       createdAt: DateTime.now(),
     );
     return _mockCurrentUser!;
