@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Release APK & Bundle
@@ -39,19 +42,38 @@ jobs:
         run: flutter test
 
       - name: Build Release APK
-        run: flutter build apk --release --android-skip-build-dependency-validation
+        run: |
+          flutter build apk --release --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/velix-go-motorista.apk
 
       - name: Build Release App Bundle (AAB)
-        run: flutter build appbundle --release --android-skip-build-dependency-validation
+        run: |
+          flutter build appbundle --release --android-skip-build-dependency-validation
+          cp build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/velix-go-motorista.aab
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: velix-go-motorista-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/velix-go-motorista.apk
 
       - name: Upload Release AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: velix-go-motorista-release-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/bundle/release/velix-go-motorista.aab
+
+      - name: Publish to GitHub Releases
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "Velix Go Motorista v1.0.0"
+          body: |
+            ## 🚘 Velix Go Motorista — Release Oficial
+            Compilado automaticamente via GitHub Actions CI/CD.
+            - 📲 **APK para Instalação no Celular**: `velix-go-motorista.apk`
+            - 📦 **Bundle para a Google Play**: `velix-go-motorista.aab`
+          files: |
+            build/app/outputs/flutter-apk/velix-go-motorista.apk
+            build/app/outputs/bundle/release/velix-go-motorista.aab
