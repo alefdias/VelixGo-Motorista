@@ -15,6 +15,7 @@ class DriverController extends ChangeNotifier {
   DriverModel? _driverProfile;
   bool _isOnline = false;
   LatLng _currentLocation = const LatLng(AppConstants.defaultLat, AppConstants.defaultLng);
+  double _heading = 0.0;
 
   List<RideModel> _pendingRides = [];
   RideModel? _activeRide;
@@ -38,6 +39,7 @@ class DriverController extends ChangeNotifier {
   DriverModel? get driverProfile => _driverProfile;
   bool get isOnline => _isOnline;
   LatLng get currentLocation => _currentLocation;
+  double get heading => _heading;
   List<RideModel> get pendingRides => _pendingRides;
   RideModel? get activeRide => _activeRide;
   List<InvoiceModel> get invoices => _invoices;
@@ -180,6 +182,7 @@ class DriverController extends ChangeNotifier {
     // 2. Transmissão contínua em tempo real conforme o motorista se desloca
     _gpsStreamSub = LocationService.getPositionStream().listen((pos) {
       _currentLocation = LatLng(pos.latitude, pos.longitude);
+      _heading = pos.heading;
       _supabaseService.updateDriverLocation(
         driverId,
         _currentLocation,

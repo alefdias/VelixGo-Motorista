@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/routing_service.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/geo_utils.dart';
 import '../../../core/widgets/velix_map.dart';
@@ -16,6 +17,25 @@ class DriverActiveRideScreen extends StatefulWidget {
 }
 
 class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
+  List<LatLng>? _dynamicRoutePoints;
+  List<RouteInstruction> _dynamicInstructions = [];
+  bool _is3DNavigation = true;
+  String _lastRouteKey = '';
+
+  void _updateRouteIfNeeded(LatLng from, LatLng to) {
+    final key = '${from.latitude.toStringAsFixed(4)},${from.longitude.toStringAsFixed(4)}-${to.latitude.toStringAsFixed(4)},${to.longitude.toStringAsFixed(4)}';
+    if (_lastRouteKey == key) return;
+    _lastRouteKey = key;
+
+    RoutingService.getDrivingRoute(from, to).then((res) {
+      if (mounted) {
+        setState(() {
+          _dynamicRoutePoints = res.points;
+          _dynamicInstructions = res.instructions;
+        });
+      }
+    }).catchError((_) {});
+  }
   void _callPassenger(String? phone) async {
     if (phone == null || phone.isEmpty) return;
     final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -83,24 +103,81 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
       ),
     ];
 
-    // Traça rota até o passageiro ou até o destino
-    final routePoints = (ride.status == 'accepted' || ride.status == 'arrived')
-        ? GeoUtils.createRoutePolyline(driver.currentLocation, pickupPos)
-        : GeoUtils.createRoutePolyline(driver.currentLocation, dropoffPos);
+    // Traça rota real até o passageiro ou até o destino
+    final LatLng targetPos = (ride.status == 'accepted' || ride.status == 'arrived') ? pickupPos : dropoffPos;
+    _updateRouteIfNeeded(driver.currentLocation, targetPos);
+
+    final routePoints = _dynamicRoutePoints ?? GeoUtils.createRoutePolyline(driver.currentLocation, targetPos);
 
     return Scaffold(
       body: Stack(
         children: [
-          // Velix Map Navegação
+          // Velix Map Navegação 3D GPS
           VelixMap(
             center: driver.currentLocation,
-            initialZoom: 15.5,
+            initialZoom: 17.5,
             markers: markers,
             routePoints: routePoints,
             routeColor: AppColors.green,
             showRecenterButton: true,
+            initial3DMode: _is3DNavigation,
+            heading: driver.heading,
+            onToggle3D: (val) => setState(() => _is3DNavigation = val),
             padding: const EdgeInsets.only(bottom: 300),
           ),
+
+          // Banner Superior GPS Turn-by-Turn Navegação
+          if (_dynamicInstructions.isNotEmpty)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.black.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.green.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.navigation_rounded, color: AppColors.green, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _dynamicInstructions.first.instruction,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${_dynamicInstructions.first.distanceMeters.toStringAsFixed(0)}m • GPS Ativo',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // Top Header com Botão Waze/Google Maps Externo
           SafeArea(
